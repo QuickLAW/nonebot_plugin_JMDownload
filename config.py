@@ -7,8 +7,7 @@ from nonebot import get_driver
 driver = get_driver()
 global_config = driver.config
 
-# 在原有路径定义后添加检测逻辑
-jm_config_path = global_config.jm_config_path
+jm_config_path = getattr(global_config, "jm_config_path", "data/nonebot_plugin_jmdownload/config.yml")
 
 # 新增配置文件检测与生成
 config_path = Path(jm_config_path)
