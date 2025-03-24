@@ -1,0 +1,6 @@
+nonebot2>=2.0.0rc1
+nonebot-adapter-onebot>=2.0.0
+jmcomic
+PyYAML
+Pillow
+reportlab
