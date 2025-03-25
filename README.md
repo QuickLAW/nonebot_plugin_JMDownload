@@ -1,8 +1,19 @@
-# nonebot-plugin-jmdownload
+<div align="center">
 
-[![License](https://img.shields.io/github/license/QuickLAW/nonebot_plugin_JMDownload)](LICENSE)
-[![NoneBot2](https://img.shields.io/badge/NoneBot-2.0.0rc1+-green.svg)](https://v2.nonebot.dev/)
-[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
+# nonebot-plugin-JMDownload
+
+_✨ NoneBot 插件简单描述 ✨_
+
+<a href="./LICENSE">
+    <img src="https://img.shields.io/github/license/QuickLAW/nonebot_plugin_JMDownload" alt="license">
+</a>
+<a href="https://pypi.org/project/nonebot-plugin-jmdownload/">
+    <img src="https://img.shields.io/pypi/v/nonebot-plugin-jmdownload" alt="pypi">
+</a>
+<img src="https://img.shields.io/badge/python-3.8+-blue.svg" alt="python">
+<img src="https://img.shields.io/badge/NoneBot-2.0.0rc1+-green.svg" alt="python">
+
+</div>
 
 ✨ 基于 NoneBot2 的 JM 漫画下载插件，支持下载漫画并转换为 PDF 格式。本项目使用 DeepSeek 辅助完成编写，代码可能需要进一步优化。
 
