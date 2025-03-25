@@ -22,17 +22,28 @@
 
 ### 安装步骤
 
-
-1. 使用 pip 安装依赖
+1. 安装必要依赖
 
 ```bash
 pip install jmcomic -i https://pypi.org/project -U
 ```
 
-2. 手动安装
+2. 使用 pip 安装插件（推荐）
+
+```bash
+pip install nonebot-plugin-jmdownload
+```
+
+3. 手动安装（备选）
    - 下载本插件代码
    - 解压至 `plugins` 目录
    - 安装依赖 `pip install -r requirements.txt`
+
+安装完成后，在 nonebot2 项目的 `pyproject.toml` 或者 `.env` 文件中添加插件名称：
+
+```ini
+plugins = ["nonebot_plugin_jmdownload"]
+```
 
 ## ⚙️ 使用方法
 
@@ -117,7 +128,7 @@ A: 转换速度取决于图片数量和大小，请耐心等待。
 
 ## 📄 许可证
 
-本项目采用 [GNU General Public License v3.0](LICENSE) 开源许可证。
+本项目采用 [BSD 3-Clause License](LICENSE) 开源许可证。
 
 ## 🙏 致谢
 
