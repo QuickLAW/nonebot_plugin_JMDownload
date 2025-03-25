@@ -1,6 +1,6 @@
 # nonebot-plugin-jmdownload
 
-[![License](https://img.shields.io/github/license/your-username/nonebot-plugin-jmdownload)](LICENSE)
+[![License](https://img.shields.io/github/license/QuickLAW/nonebot_plugin_JMDownload)](LICENSE)
 [![NoneBot2](https://img.shields.io/badge/NoneBot-2.0.0rc1+-green.svg)](https://v2.nonebot.dev/)
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
 
