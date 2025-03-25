@@ -3,6 +3,7 @@ from .config import jm_config, jm_config_path
 import jmcomic
 # 在文件顶部添加导入
 import shutil
+import asyncio
 
 class DownloadManager:
     def __init__(self):
@@ -14,8 +15,8 @@ class DownloadManager:
             # 初始化下载配置
             load_config = jmcomic.JmOption.from_file(jm_config_path)
             
-            # 下载漫画
-            jmcomic.download_album(comic_id, load_config)
+            # 使用asyncio.to_thread将同步下载操作转换为异步
+            await asyncio.to_thread(jmcomic.download_album, comic_id, load_config)
                 
             return jm_config['dir_rule']['base_dir']
             
