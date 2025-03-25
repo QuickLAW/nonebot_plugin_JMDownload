@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="nonebot_plugin_jmdownload",
-    version="1.1.7",
+    version="1.2.0",
     description="基于NoneBot2的JM漫画下载插件",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -14,7 +14,7 @@ setup(
     author_email="yewillwork@outlook.com",
     url="https://github.com/QuickLAW/nonebot_plugin_JMDownload",
     packages=["nonebot_plugin_jmdownload"],
-    package_dir={"nonebot_plugin_jmdownload":"src"},
+    package_dir={"nonebot_plugin_jmdownload":"nonebot_plugin_jmdownload"},
     install_requires=[
         "nonebot2>=2.0.0rc1",
         "nonebot-adapter-onebot>=2.0.0",
