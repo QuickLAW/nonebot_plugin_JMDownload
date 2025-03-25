@@ -5,8 +5,8 @@ with open("README.md", "r", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name="nonebot-plugin-jmdownload",
-    version="1.1.0",
+    name="nonebot_plugin_jmdownload",
+    version="1.1.6",
     description="基于NoneBot2的JM漫画下载插件",
     long_description=long_description,
     long_description_content_type="text/markdown",
