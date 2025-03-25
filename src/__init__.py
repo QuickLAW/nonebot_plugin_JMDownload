@@ -10,14 +10,14 @@ from .utils import logger, ensure_dir
 from .handlers import jm_download  # 导入处理器
 
 
-__version__ = '1.0.0'
+__version__ = '1.1.7'
 
 __plugin_meta__ = PluginMetadata(
     name="JM漫画下载",
     description="下载JM漫画并转换为PDF",
     usage="/jm download <序号> 或 /jm 下载 <序号>",
     type="application",
-    homepage="https://github.com/your-username/nonebot_plugin_jmdownload",
+    homepage="https://github.com/QuickLAW/nonebot_plugin_JMDownload",
     supported_adapters={"~onebot.v11"},
 )
 
