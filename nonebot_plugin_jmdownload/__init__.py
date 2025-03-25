@@ -10,7 +10,7 @@ from .utils import logger, ensure_dir
 from .handlers import jm_download  # 导入处理器
 
 
-__version__ = '1.1.7'
+__version__ = '1.2.0'
 
 __plugin_meta__ = PluginMetadata(
     name="JM漫画下载",
