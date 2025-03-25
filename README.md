@@ -50,7 +50,7 @@ pip install nonebot-plugin-jmdownload
    - 解压至 `plugins` 目录
    - 安装依赖 `pip install -r requirements.txt`
 
-安装完成后，在 nonebot2 项目的 `pyproject.toml` 或者 `.env` 文件中添加插件名称：
+安装完成后，在 nonebot2 项目的 `pyproject.toml` 文件中添加插件名称：
 
 ```ini
 plugins = ["nonebot_plugin_jmdownload"]
