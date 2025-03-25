@@ -31,6 +31,24 @@ client:
     - 18comic-MHWs.CC
     - 18comic.vip
     - 18comic.org
+  # 客户端实现类，可选：html(网页端)或api(APP端)
+  impl: html
+  # 请求失败重试次数
+  retry_times: 5
+  # 请求配置
+  postman:
+    meta_data:
+      # 代理配置，可选值：
+      # system - 使用系统代理
+      # null - 不使用代理
+      # clash/v2ray - 使用对应代理软件
+      # 127.0.0.1:7890 - 直接指定代理地址
+      # 或使用代理字典格式：
+      # http: 127.0.0.1:7890
+      # https: 127.0.0.1:7890
+      proxies: system
+      # cookies配置，用于需要登录的内容
+      cookies: null
 
 download:
   cache: true    # 文件存在时跳过下载
