@@ -1,3 +1,9 @@
+from nonebot_plugin_jmdownload.pdf_converter import PDFConverter
+
+
+from nonebot_plugin_jmdownload.download import DownloadManager
+
+
 from pathlib import Path
 from nonebot import on_command
 from nonebot.adapters.onebot.v11.message import MessageSegment, Message
@@ -32,13 +38,13 @@ async def handle_jm(args: Message = CommandArg()):
         # 下载漫画
         await jm_download.send(f"开始下载漫画 {comic_id}...")
         # 替换原来的async with用法
-        downloader = DownloadManager()
-        comic_dir = await downloader.download_comic(comic_id)
+        downloader: DownloadManager = DownloadManager()
+        comic_dir: Path = await downloader.download_comic(comic_id)
         
         # 转换为PDF
         await jm_download.send("开始转换为PDF...")
-        converter = PDFConverter(comic_dir, data_dir / "output", comic_id)
-        pdf_path = await converter.convert()
+        converter: PDFConverter = PDFConverter(comic_dir, data_dir / "output", comic_id)
+        pdf_path: Path = await converter.convert()
         # 清理临时文件
         await downloader.clear()
         
