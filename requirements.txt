@@ -4,3 +4,5 @@ jmcomic
 PyYAML
 Pillow
 reportlab
+psutil
+PyPDF2

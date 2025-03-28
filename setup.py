@@ -21,7 +21,9 @@ setup(
         "jmcomic",
         "PyYAML",
         "Pillow",
-        "reportlab"
+        "reportlab",
+        "psutil",
+        "PyPDF2"
     ],
     license="BSD 3-Clause License",
     platforms=["all"],
