@@ -129,10 +129,10 @@ class PDFConverter:
         mem_info = psutil.virtual_memory()
         available_mem = mem_info.available / (1024 ** 2)  # MB
         max_possible = min(
-            math.floor(available_mem / max_memory_per_core),
-            available_cores
+            math.floor(available_mem / max_memory_per_core) if max_memory_per_core > 0 else available_cores,
+            available_cores if available_cores > 0 else 1
         )
-        return max(1, math.ceil(total_images / max_possible))
+        return max(1, math.ceil(total_images / max_possible)) if max_possible > 0 else 1
         
     def _is_image_complete(self, img_path):
         """检查图片文件是否完整"""
