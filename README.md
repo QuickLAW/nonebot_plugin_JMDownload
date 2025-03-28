@@ -60,11 +60,11 @@ plugins = ["nonebot_plugin_jmdownload"]
 
 ### 基础配置
 
-1. 在 NoneBot2 项目的 `.env` 文件中添加配置（未来移除此项的必须性）：
+1. NoneBot2 项目的 `.env` 文件中可用配置：
 
-```plaintext
-jm_config_path="data/nonebot_plugin_jmdownload/config.yml"
-```
+| 配置项 | 值 | 是否必须 |
+|-------|-----|---------|
+| jm_config_path | "data/nonebot_plugin_jmdownload/config.yml" | 否 |
 
 2. 首次运行时会自动生成配置文件，包含以下内容：
 
@@ -115,11 +115,10 @@ download:
 
 ### 🚀 命令使用
 
-```
-/jm download <序号>
-/jm 下载 <序号>
-```
-
+| 一级指令 | 二级指令 | 参数 | 说明 |
+|---------|----------|------|------|
+| `/jm` | `download` | `<序号>` | 下载指定序号的漫画 |
+| `/jm` | `下载` | `<序号>` | 下载指定序号的漫画 |
 ### ⚠️ 注意事项
 
 1. 请确保机器人具有足够的存储空间
