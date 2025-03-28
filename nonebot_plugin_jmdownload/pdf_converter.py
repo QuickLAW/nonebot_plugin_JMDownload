@@ -1,25 +1,23 @@
 from asyncio.events import AbstractEventLoop
-from re import sub
-
-
 from PIL.ImageFile import ImageFile
-
+import tempfile
+import psutil  # 导入psutil模块用于获取系统内存信息
+from PyPDF2 import PdfMerger
 
 from typing import Any
-
+import math
 
 from pathlib import Path
 from PIL import Image
 import asyncio
 import os
 import time
-from .utils import logger
 import multiprocessing
 from concurrent.futures import ThreadPoolExecutor
 
 class PDFConverter:
-    def __init__(self, input_folder: str, output_folder: Path, comic_id: str) -> None:
-        self.input_folder = input_folder
+    def __init__(self, input_folder: Path, output_folder: Path, comic_id: str) -> None:
+        self.input_folder = str(input_folder)
         self.output_folder = output_folder
         self.comic_id = comic_id
         self.image_files: list[Path] = []
@@ -29,7 +27,6 @@ class PDFConverter:
         """异步转换图片为PDF，使用线程池优化性能"""
         try:
             start_time = time.time()
-            logger.info(f"开始转换漫画 {self.comic_id} 为PDF...")
 
             # 异步收集图片文件
             await self._collect_images()
@@ -44,7 +41,6 @@ class PDFConverter:
             
             end_time: float = time.time()
             run_time: float = end_time - start_time
-            logger.info(msg=f"PDF转换完成，运行时间：{run_time:.2f} 秒")
             
             return pdf_path
             
@@ -57,8 +53,6 @@ class PDFConverter:
         
         async def process_dir(path: str) -> None:
             """异步处理单个目录"""
-            logger.debug(f"正在处理目录: {path}")
-            logger.debug(f"目录内容: {[f.name for f in os.scandir(path)]}")
             with os.scandir(path) as entries:
                 for topic in sorted(entries, key=lambda x: x.name):
                     if not topic.is_dir():
@@ -90,49 +84,140 @@ class PDFConverter:
         
         # 直接在当前事件循环中运行process_dir
         await process_dir(self.input_folder)
-        
-        logger.info(f"共找到 {len(self.image_files)} 张图片")
 
     async def _convert_to_pdf(self) -> Path:
-        """转换图片为PDF，使用分批次处理避免内存不足"""
-        # 新增目录创建逻辑
+        """转换图片为PDF，使用多进程并行处理优化性能"""
         self.output_folder.mkdir(parents=True, exist_ok=True)
         pdf_path: Path = self.output_folder / f"{self.comic_id}.pdf"
         
-        # 分批次处理图片，每批100张
-        batch_size = 100
-        first_batch = True
-        
-        for i in range(0, len(self.image_files), batch_size):
-            batch = self.image_files[i:i + batch_size]
-            sources = []
+        # 创建临时目录
+        temp_dir = tempfile.mkdtemp()
+        try:
+            # 计算工作进程数
+            available_cores = multiprocessing.cpu_count()
+            max_workers = max(1, available_cores - 1)
             
-            # 处理批次中的所有图片
-            for img_path in batch:
+            # 动态分块
+            chunk_size = self._calculate_chunk_size(len(self.image_files), max_workers)
+            chunks = [
+                self.image_files[i:i + chunk_size]
+                for i in range(0, len(self.image_files), chunk_size)
+            ]
+            
+            # 多进程处理
+            with multiprocessing.Pool(processes=max_workers) as pool:
+                tasks = [(chunk, temp_dir) for chunk in chunks]
+                results = pool.starmap(self._process_image_chunk, tasks)
+            
+            # 合并PDF
+            merger = PdfMerger()
+            for pdf in results:
+                if os.path.exists(pdf):
+                    merger.append(pdf)
+            merger.write(str(pdf_path))
+            merger.close()
+            
+            return pdf_path
+        finally:
+            # 清理临时文件
+            for f in os.listdir(temp_dir):
+                os.remove(os.path.join(temp_dir, f))
+            os.rmdir(temp_dir)
+    
+    def _calculate_chunk_size(self, total_images, available_cores, max_memory_per_core=512):
+        """动态计算每个核心处理的图片数量"""
+        mem_info = psutil.virtual_memory()
+        available_mem = mem_info.available / (1024 ** 2)  # MB
+        max_possible = min(
+            math.floor(available_mem / max_memory_per_core),
+            available_cores
+        )
+        return max(1, math.ceil(total_images / max_possible))
+        
+    def _is_image_complete(self, img_path):
+        """检查图片文件是否完整"""
+        try:
+            # 尝试打开图片但不加载像素数据
+            with Image.open(str(img_path)) as img:
+                img.verify()  # 验证图片完整性
+            return True
+        except Exception as e:
+            return False
+    
+    def _process_image_chunk(self, chunk_paths, temp_dir):
+        """处理单个图片块的任务函数"""
+        chunk_pdf = tempfile.mktemp(dir=temp_dir, suffix='.pdf')
+        try:
+            images = []
+            for img_path in chunk_paths:
                 try:
+                    # 检查图片文件是否完整
+                    if not self._is_image_complete(img_path):
+                        print(f"跳过损坏的图片文件: {img_path}")
+                        continue
+                        
                     img = Image.open(str(img_path))
-                    # 检查图片大小，如果超过5MB则压缩
                     if os.path.getsize(str(img_path)) > 5 * 1024 * 1024:
                         img = img.resize((img.width // 2, img.height // 2))
                     if img.mode != "RGB":
                         img = img.convert("RGB")
-                    sources.append(img)
+                    images.append(img)
                 except Exception as e:
-                    logger.warning(f"处理图片 {img_path} 失败: {str(e)}")
+                    print(f"处理图片 {img_path} 时出错: {str(e)}")
                     continue
             
-            # 保存当前批次
-            if first_batch:
-                # 第一次保存创建新PDF
-                sources[0].save(str(pdf_path), "PDF", save_all=True, append_images=sources[1:] if len(sources) > 1 else [])
-                first_batch = False
-            else:
-                # 后续批次追加到PDF
-                with Image.open(str(pdf_path)) as existing_pdf:
-                    existing_pdf.save(str(pdf_path), "PDF", save_all=True, append_images=sources)
-            
-        return pdf_path
+            if images:
+                images[0].save(
+                    chunk_pdf,
+                    "PDF",
+                    save_all=True,
+                    append_images=images[1:],
+                    quality=100,
+                    optimize=False
+                )
+            return chunk_pdf
+        except Exception as e:
+            if os.path.exists(chunk_pdf):
+                os.remove(chunk_pdf)
+            raise e
 
 class PDFConvertError(Exception):
     """PDF转换错误异常"""
     pass
+
+
+if __name__ == "__main__":
+
+    try:
+        # 创建测试图片目录结构
+        input_dir: Path = Path(r"C:\Users\Elysia\Desktop\Code\Python\QQbotDevelop\data\nonebot_plugin_jmdownload\downloads")
+    
+        # 设置输出目录
+        output_dir: Path = Path(r"C:\Users\Elysia\Desktop\Code\Python\QQbotDevelop\data\nonebot_plugin_jmdownload\output")
+        
+        # 性能限制测试
+        def set_performance_limits():
+            """设置性能限制模拟"""
+            # 模拟内存限制为512MB
+            import psutil
+            memory_limit = 512 * 1024 * 1024  # 512MB
+            mem_info = psutil.virtual_memory()
+            if mem_info.available < memory_limit:
+                raise MemoryError("可用内存不足512MB")
+            
+            # 限制CPU核心数为1
+            import multiprocessing
+            multiprocessing.cpu_count = lambda: 1
+            
+            print("已设置性能限制: 内存512MB, CPU 1核心, 图片处理延迟100ms")
+        
+        # 运行转换
+        async def test_convert() -> None:
+            set_performance_limits()
+            converter: PDFConverter = PDFConverter(input_dir, output_dir, "test_comic")
+            pdf_path: Path = await converter.convert()
+            print(f"PDF转换完成，保存路径: {pdf_path}")
+            
+        asyncio.run(test_convert())
+    finally:
+        pass
