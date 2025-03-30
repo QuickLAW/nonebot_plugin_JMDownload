@@ -1,12 +1,6 @@
 from nonebot.internal.driver.abstract import Driver
 
-
-from nonebot.config import Config
-
-
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 import yaml
 import os
 from nonebot import get_driver, logger
@@ -62,7 +56,7 @@ def ensure_config_file():
         logger.info(f"配置文件已存在: {config_path}")
 
 # 验证配置文件
-def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
+def validate_config(config: dict[str, Any]) -> dict[str, Any]:
     """验证配置文件，确保所有必要的配置项都存在"""
     # 检查基本结构
     if not isinstance(config, dict):
