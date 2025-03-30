@@ -4,7 +4,7 @@ from PIL import Image
 from pathlib import Path
 
 # 导入nonebot的logger
-from nonebot.log import logger
+from nonebot import logger
 
 def ensure_dir(path: Path) -> Path:
     """确保目录存在，如果不存在则创建"""
