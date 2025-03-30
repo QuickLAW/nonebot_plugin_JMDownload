@@ -16,14 +16,15 @@ setup(
     packages=["nonebot_plugin_jmdownload"],
     package_dir={"nonebot_plugin_jmdownload":"nonebot_plugin_jmdownload"},
     install_requires=[
-        "nonebot2>=2.0.0rc1",
+        "nonebot2>=2.3.0",
         "nonebot-adapter-onebot>=2.0.0",
-        "jmcomic",
-        "PyYAML",
-        "Pillow",
-        "reportlab",
-        "psutil",
-        "PyPDF2"
+        "nonebot-plugin-localstore>=0.4.0",
+        "jmcomic>=0.3.0",
+        "PyYAML>=6.0",
+        "Pillow>=9.0.0",
+        "reportlab>=3.6.0",
+        "psutil>=5.9.0",
+        "PyPDF2>=2.0.0"
     ],
     license="BSD 3-Clause License",
     platforms=["all"],
