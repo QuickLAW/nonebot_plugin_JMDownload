@@ -1,12 +1,12 @@
 import asyncio
+from asyncio.events import AbstractEventLoop
 import math
 import multiprocessing
 import os
 import tempfile
 import time
 import logging
-from asyncio.events import AbstractEventLoop
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +15,7 @@ import psutil
 from PIL import Image
 from PIL.ImageFile import ImageFile
 from PyPDF2 import PdfMerger
+from .config import global_config
 
 # 导入logger
 from nonebot import logger
@@ -32,10 +33,10 @@ def simple_log(level: str, message: str, mp_context: bool = False) -> None:
         AttributeError: 如果指定的日志级别不存在
     """
     # 验证日志级别是否有效
-    valid_levels = ['debug', 'info', 'warning', 'error', 'critical']
+    valid_levels: list[str] = ['debug', 'info', 'warning', 'error', 'critical']
     if level.lower() not in valid_levels:
         fallback_level = 'info'
-        fallback_message = f"无效的日志级别 '{level}'，使用默认级别 '{fallback_level}'"
+        fallback_message: str = f"无效的日志级别 '{level}'，使用默认级别 '{fallback_level}'"
         level = fallback_level
         # 先记录警告，然后继续使用有效的级别记录原始消息
         if not mp_context:
@@ -63,13 +64,17 @@ def simple_log(level: str, message: str, mp_context: bool = False) -> None:
 class PDFConverter:
     def __init__(self, input_folder: Path, output_folder: Path, comic_id: str) -> None:
         self.input_folder = str(input_folder)
-        self.output_folder = output_folder
+        # 如果output_folder为None，则从环境变量中读取输出目录配置
+        if output_folder is None:
+            self.output_folder = Path(global_config.get('jmdownload_output_dir', 'data/nonebot_plugin_jmdownload/outputs'))
+        else:
+            self.output_folder = output_folder
         self.comic_id = comic_id
         self.image_files: list[Path] = []
         self.pool_size = multiprocessing.cpu_count() * 2
 
     async def convert(self) -> Path:
-        """异步转换图片为PDF，使用线程池优化性能
+        """异步转换图片为PDF，使用进程池优化性能
         
         整个转换过程包括：收集图片、验证图片、分块处理、合并PDF
         
@@ -99,9 +104,9 @@ class PDFConverter:
                       f"可用内存={mem_info.available/(1024*1024*1024):.2f}GB", mp_context=False)
             
             # 异步收集图片文件
-            collection_start = time.time()
+            collection_start: float = time.time()
             await self._collect_images()
-            collection_end = time.time()
+            collection_end: float = time.time()
             performance_stats["collection_time"] = int(collection_end - collection_start)
             
             # 验证图片文件
@@ -111,12 +116,22 @@ class PDFConverter:
             performance_stats["total_images"] = len(self.image_files)
             simple_log("info", f"收集到 {len(self.image_files)} 张图片，耗时 {performance_stats['collection_time']:.2f} 秒", mp_context=False)
 
-            # 使用线程池异步转换为PDF
-            conversion_start = time.time()
+            # 使用进程池直接处理PDF转换
+            conversion_start: float = time.time()
             loop: AbstractEventLoop = asyncio.get_event_loop()
-            with ThreadPoolExecutor(max_workers=self.pool_size) as pool:
-                pdf_path: Path = await loop.run_in_executor(
-                    pool, lambda: asyncio.run(self._convert_to_pdf()))
+            # 直接使用ProcessPoolExecutor处理PDF转换
+            with ProcessPoolExecutor(max_workers=min(self.pool_size, multiprocessing.cpu_count())) as pool:
+                # 准备参数，避免在进程间传递复杂对象
+                input_folder = str(self.input_folder)
+                output_folder = str(self.output_folder)
+                comic_id = self.comic_id
+                image_files: list[str] = [str(img) for img in self.image_files]
+                
+                # 提交任务到进程池
+                pdf_path_str = await loop.run_in_executor(
+                    pool, self._process_pdf_conversion, input_folder, output_folder, comic_id, image_files)
+                pdf_path = Path(pdf_path_str)
+            
             conversion_end = time.time()
             performance_stats["conversion_time"] = int(conversion_end - conversion_start)
             
@@ -181,42 +196,51 @@ class PDFConverter:
         # 直接在当前事件循环中运行process_dir
         await process_dir(self.input_folder)
 
-    async def _convert_to_pdf(self) -> Path:
-        """转换图片为PDF，使用线程池并行处理优化性能
+    def _process_pdf_conversion(self, input_folder: str, output_folder: str, comic_id: str, image_files: list[str]) -> str:
+        """在进程池中执行PDF转换
         
-        将收集到的图片分块处理，每个块生成一个临时PDF，最后合并为一个完整PDF
+        这个方法设计为在单独的进程中运行，处理图片转换为PDF的全过程
         
+        Args:
+            input_folder: 输入文件夹路径
+            output_folder: 输出文件夹路径
+            comic_id: 漫画ID
+            image_files: 图片文件路径列表
+            
         Returns:
-            Path: 生成的PDF文件路径
+            str: 生成的PDF文件路径
             
         Raises:
-            PDFConvertError: PDF转换过程中的错误
+            Exception: 处理过程中的任何异常
         """
+        # 配置日志记录
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+        
         # 确保输出目录存在
-        self.output_folder.mkdir(parents=True, exist_ok=True)
-        pdf_path: Path = self.output_folder / f"{self.comic_id}.pdf"
+        os.makedirs(output_folder, exist_ok=True)
+        pdf_path = os.path.join(output_folder, f"{comic_id}.pdf")
         
         # 如果输出文件已存在，先删除
-        if pdf_path.exists():
+        if os.path.exists(pdf_path):
             try:
-                pdf_path.unlink()
-                simple_log("info", f"已删除已存在的PDF文件: {pdf_path}", mp_context=False)
+                os.remove(pdf_path)
+                simple_log("info", f"已删除已存在的PDF文件: {pdf_path}", mp_context=True)
             except Exception as e:
-                simple_log("warning", f"删除已存在的PDF文件失败: {str(e)}", mp_context=False)
+                simple_log("warning", f"删除已存在的PDF文件失败: {str(e)}", mp_context=True)
         
         # 创建临时目录
         temp_dir = tempfile.mkdtemp(prefix="jm_pdf_")
-        simple_log("debug", f"创建临时目录: {temp_dir}", mp_context=False)
+        simple_log("debug", f"创建临时目录: {temp_dir}", mp_context=True)
         
         start_time = time.time()
-        temp_pdfs: list[str] = []
+        temp_pdfs = []
         
         try:
-            # 计算工作线程数，考虑系统负载
+            # 计算工作进程数，考虑系统负载
             available_cores = multiprocessing.cpu_count()
             system_load = psutil.cpu_percent(interval=0.1)
             
-            # 根据系统负载调整线程数
+            # 根据系统负载调整进程数
             if system_load > 80:  # 系统负载高
                 max_workers = max(1, available_cores // 4)  # 使用1/4的核心
             elif system_load > 50:  # 系统负载中等
@@ -224,86 +248,84 @@ class PDFConverter:
             else:  # 系统负载低
                 max_workers = max(1, available_cores - 1)  # 使用全部核心减1
                 
-            simple_log("info", f"系统状态: CPU负载={system_load}%, 内存使用率={psutil.virtual_memory().percent}%, 工作线程数={max_workers}", mp_context=False)
+            simple_log("info", f"系统状态: CPU负载={system_load}%, 内存使用率={psutil.virtual_memory().percent}%, 工作进程数={max_workers}", mp_context=True)
+            
+            # 将字符串路径转换为Path对象
+            image_paths = [Path(img) for img in image_files]
             
             # 动态分块
-            total_images = len(self.image_files)
-            chunk_size: int = self._calculate_chunk_size(total_images, max_workers)
+            total_images = len(image_paths)
+            chunk_size = self._calculate_chunk_size(total_images, max_workers)
             
             # 创建图片分块
-            chunks: list[list[Path]] = [
-                self.image_files[i:i + chunk_size]
+            chunks = [
+                image_paths[i:i + chunk_size]
                 for i in range(0, total_images, chunk_size)
             ]
             
-            simple_log("info", f"开始处理图片: 总数={total_images}, 分块数={len(chunks)}, 每块大小≈{chunk_size}", mp_context=False)
+            simple_log("info", f"开始处理图片: 总数={total_images}, 分块数={len(chunks)}, 每块大小≈{chunk_size}", mp_context=True)
             
-            # 使用线程池处理图片块
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                # 提交所有任务，传递块ID
-                futures = [executor.submit(self._process_image_chunk, chunk, temp_dir, i+1, len(chunks)) for i, chunk in enumerate(chunks)]
-                
-                # 收集结果
-                for i, future in enumerate(futures):
-                    try:
-                        result = future.result()
-                        if result and os.path.exists(result):
-                            temp_pdfs.append(result)
-                            simple_log("debug", f"完成处理图片块 {i+1}/{len(chunks)}", mp_context=False)
-                    except Exception as e:
-                        simple_log("error", f"处理图片块 {i+1}/{len(chunks)} 失败: {str(e)}", mp_context=False)
+            # 处理所有图片块
+            for i, chunk in enumerate(chunks):
+                try:
+                    result = self._process_image_chunk(chunk, temp_dir, i+1, len(chunks))
+                    if result and os.path.exists(result):
+                        temp_pdfs.append(result)
+                        simple_log("debug", f"完成处理图片块 {i+1}/{len(chunks)}", mp_context=True)
+                except Exception as e:
+                    simple_log("error", f"处理图片块 {i+1}/{len(chunks)} 失败: {str(e)}", mp_context=True)
             
             # 检查是否有成功生成的PDF
             if not temp_pdfs:
-                raise PDFConvertError("没有成功生成任何PDF块，转换失败")
+                raise Exception("没有成功生成任何PDF块，转换失败")
                 
             # 合并PDF
-            simple_log("info", f"开始合并 {len(temp_pdfs)} 个PDF块...", mp_context=False)
+            simple_log("info", f"开始合并 {len(temp_pdfs)} 个PDF块...", mp_context=True)
             merger = PdfMerger()
             for pdf in temp_pdfs:
                 if os.path.exists(pdf):
                     try:
                         merger.append(pdf)
                     except Exception as e:
-                        simple_log("warning", f"添加PDF块 {pdf} 到合并器失败: {str(e)}", mp_context=False)
+                        simple_log("warning", f"添加PDF块 {pdf} 到合并器失败: {str(e)}", mp_context=True)
             
             # 写入最终PDF
             try:
-                merger.write(str(pdf_path))
-                simple_log("info", f"PDF合并完成，保存到: {pdf_path}", mp_context=False)
+                merger.write(pdf_path)
+                simple_log("info", f"PDF合并完成，保存到: {pdf_path}", mp_context=True)
             except Exception as e:
-                raise PDFConvertError(f"写入最终PDF失败: {str(e)}")
+                raise Exception(f"写入最终PDF失败: {str(e)}")
             finally:
                 merger.close()
             
             # 计算处理时间
             end_time = time.time()
             process_time = end_time - start_time
-            simple_log("info", f"PDF转换完成: 处理了 {total_images} 张图片，耗时 {process_time:.2f} 秒", mp_context=False)
+            simple_log("info", f"PDF转换完成: 处理了 {total_images} 张图片，耗时 {process_time:.2f} 秒", mp_context=True)
             
             return pdf_path
             
         except Exception as e:
             error_msg = f"转换PDF过程中发生错误: {str(e)}"
-            simple_log("error", error_msg, mp_context=False)
-            raise PDFConvertError(error_msg)
+            simple_log("error", error_msg, mp_context=True)
+            raise Exception(error_msg)
             
         finally:
             # 清理临时文件
-            simple_log("debug", f"清理临时目录: {temp_dir}", mp_context=False)
+            simple_log("debug", f"清理临时目录: {temp_dir}", mp_context=True)
             try:
                 # 删除临时PDF文件
                 for f in os.listdir(temp_dir):
                     try:
                         os.remove(os.path.join(temp_dir, f))
                     except Exception as e:
-                        simple_log("warning", f"删除临时文件 {f} 失败: {str(e)}", mp_context=False)
+                        simple_log("warning", f"删除临时文件 {f} 失败: {str(e)}", mp_context=True)
                 
                 # 删除临时目录
                 os.rmdir(temp_dir)
-                simple_log("debug", "临时目录清理完成", mp_context=False)
+                simple_log("debug", "临时目录清理完成", mp_context=True)
             except Exception as e:
-                simple_log("warning", f"清理临时目录失败: {str(e)}", mp_context=False)
+                simple_log("warning", f"清理临时目录失败: {str(e)}", mp_context=True)
     
     def _calculate_chunk_size(self, total_images: int, available_cores: int, max_memory_per_core: int = 512) -> int:
         """动态计算每个核心处理的图片数量
