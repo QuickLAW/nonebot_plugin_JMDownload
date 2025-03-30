@@ -1,3 +1,5 @@
+import asyncio
+from socket import timeout
 from nonebot_plugin_jmdownload.pdf_converter import PDFConverter
 
 
@@ -34,29 +36,49 @@ async def handle_jm(args: Message = CommandArg()):
     comic_id = arg_text[1]
     
     try:
-        
         # 下载漫画
-        await jm_download.send(f"开始下载漫画 {comic_id}...")
-        # 替换原来的async with用法
+        await jm_download.send(f"开始下载漫画 {comic_id}...\n这可能需要一些时间，请耐心等待。下载过程中会定期发送进度报告。")
+        
+        # 创建下载管理器
         downloader: DownloadManager = DownloadManager()
-        comic_dir: Path = await downloader.download_comic(comic_id)
         
-        # 转换为PDF
-        await jm_download.send("开始转换为PDF...")
-        converter: PDFConverter = PDFConverter(comic_dir, data_dir / "output", comic_id)
-        pdf_path: Path = await converter.convert()
-        # 清理临时文件
-        await downloader.clear()
+        # 设置下载超时和进度报告间隔
+        download_timeout = 3600  # 1小时超时
+        progress_interval = 30   # 30秒报告一次进度
         
-        # 发送文件
-        if pdf_path.exists():
-            # 使用实际生成的 PDF 路径
-            file_uri = f"file:///{pdf_path.resolve().as_posix()}"
-            await jm_download.send(Message(build_cq_file(file_uri)))
-            # 删除PDF文件
-            pdf_path.unlink()
-        else:
-            await jm_download.finish("PDF转换失败！")
+        # 创建进度报告任务
+        last_progress_time = 0
+        
+        # 异步下载漫画，添加超时控制
+        try:
+            comic_dir: Path = await downloader.download_comic(comic_id, timeout=download_timeout, progress_interval=progress_interval)
+            
+            # 下载完成后发送通知
+            await jm_download.send(f"漫画 {comic_id} 下载完成，开始转换为PDF...")
+            
+            # 转换为PDF
+            # 从环境变量中读取输出目录配置，如果不存在则使用默认值
+            output_dir = Path(global_config.get('jmdownload_output_dir', 'data/nonebot_plugin_jmdownload/outputs'))
+            ensure_dir(output_dir)  # 确保输出目录存在
+            converter: PDFConverter = PDFConverter(comic_dir, output_dir, comic_id)
+            pdf_path: Path = await converter.convert()
+            
+            # 清理临时文件
+            await downloader.clear()
+            
+            # 发送文件
+            if pdf_path.exists():
+                # 使用实际生成的 PDF 路径
+                file_uri = f"file:///{pdf_path.resolve().as_posix()}"
+                await jm_download.send(Message(build_cq_file(file_uri)), timeout=300)
+                # 删除PDF文件
+                pdf_path.unlink()
+            else:
+                await jm_download.finish("PDF转换失败！")
+                
+        except asyncio.TimeoutError:
+            await jm_download.finish(f"下载漫画 {comic_id} 超时，请稍后再试或检查网络连接")
+            return
             
     except Exception as e:
         logger.error(f"处理漫画 {comic_id} 时发生错误: {str(e)}")
