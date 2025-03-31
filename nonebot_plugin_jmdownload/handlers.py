@@ -84,10 +84,12 @@ async def handle_jm(args: Message = CommandArg()):
                 # 创建上传进度反馈任务
                 upload_feedback_task = None
                 
-                bandwidth = int(global_config.get('SERVER_BANDWIDTH', 0))  # 从配置获取带宽(Mbps)
+                bandwidth = int(global_config.get('server_bandwidth', 0))  # 从配置获取带宽(Mbps)
+                logger.info(f"上传带宽: {bandwidth} Mbps")
                 
                 if bandwidth > 0:
                     estimated_time = int(file_size / bandwidth * 8)  # Mbps
+                    await jm_download.send(f"预计上传时间: {estimated_time} 秒")
                     
                     async def send_upload_progress():
                         count = 0
@@ -108,8 +110,10 @@ async def handle_jm(args: Message = CommandArg()):
                         upload_feedback_task = None
                     
                     # 发送文件
+                    upload_completed = False
                     try:
                         await jm_download.send(Message(build_cq_file(file_uri)), timeout=600)
+                        upload_completed = True
                     except Exception as e:
                         if "NetWorkError" in str(e) and "WebSocket call api send_msg timeout" in str(e):
                             logger.warning(f"文件上传超时，但上传仍在后台继续: {str(e)}")
@@ -119,9 +123,6 @@ async def handle_jm(args: Message = CommandArg()):
                     # 上传完成，取消进度反馈任务
                     if upload_feedback_task and not upload_feedback_task.done():
                         upload_feedback_task.cancel()
-                    
-                    # 发送上传完成通知
-                    await jm_download.send("文件上传完成！")
                     
                     # 删除PDF文件
                     pdf_path.unlink()
