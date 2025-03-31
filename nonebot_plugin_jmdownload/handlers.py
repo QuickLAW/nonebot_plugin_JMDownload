@@ -77,13 +77,18 @@ async def handle_jm(args: Message = CommandArg()):
                 # 创建上传进度反馈任务
                 upload_feedback_task = None
                 
+                # 获取文件大小并预估上传时间
+                file_size = pdf_path.stat().st_size / (1024 * 1024)  # MB
+                estimated_time = max(300, int(file_size * 10))  # 预估时间(10秒/MB)
+                
                 async def send_upload_progress():
                     count = 0
                     try:
                         while True:
                             count += 1
-                            await asyncio.sleep(10)  # 每30秒发送一次进度提示
-                            await jm_download.send(f"文件上传中，已耗时 {count*10} 秒，请继续等待...")
+                            await asyncio.sleep(10)
+                            progress = min(100, count*10/estimated_time*100)
+                            await jm_download.send(f"文件上传中，进度: {progress:.1f}%，已耗时 {count*10} 秒，预计剩余时间 {max(0, estimated_time-count*10)} 秒")
                     except asyncio.CancelledError:
                         pass
                 
@@ -92,7 +97,13 @@ async def handle_jm(args: Message = CommandArg()):
                     upload_feedback_task = asyncio.create_task(send_upload_progress())
                     
                     # 发送文件
-                    await jm_download.send(Message(build_cq_file(file_uri)), timeout=300)
+                    try:
+                        await jm_download.send(Message(build_cq_file(file_uri)), timeout=600)
+                    except Exception as e:
+                        if "NetWorkError" in str(e) and "WebSocket call api send_msg timeout" in str(e):
+                            logger.warning(f"文件上传超时，但上传仍在后台继续: {str(e)}")
+                        else:
+                            raise e
                     
                     # 上传完成，取消进度反馈任务
                     if upload_feedback_task and not upload_feedback_task.done():
