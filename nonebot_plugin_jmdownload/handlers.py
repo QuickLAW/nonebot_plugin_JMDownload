@@ -79,22 +79,28 @@ async def handle_jm(args: Message = CommandArg()):
                 
                 # 获取文件大小并预估上传时间
                 file_size = pdf_path.stat().st_size / (1024 * 1024)  # MB
-                estimated_time = max(300, int(file_size * 10))  # 预估时间(10秒/MB)
+                bandwidth = int(global_config.get('SERVER_BANDWIDTH', 0))  # 从配置获取带宽(Mbps)
                 
-                async def send_upload_progress():
-                    count = 0
-                    try:
-                        while True:
-                            count += 1
-                            await asyncio.sleep(10)
-                            progress = min(100, count*10/estimated_time*100)
-                            await jm_download.send(f"文件上传中，进度: {progress:.1f}%，已耗时 {count*10} 秒，预计剩余时间 {max(0, estimated_time-count*10)} 秒")
-                    except asyncio.CancelledError:
-                        pass
+                if bandwidth > 0:
+                    estimated_time = int(file_size / bandwidth * 8)  # Mbps
+                    
+                    async def send_upload_progress():
+                        count = 0
+                        try:
+                            while True:
+                                count += 1
+                                await asyncio.sleep(10)
+                                progress = min(100, count*10/estimated_time*100)
+                                await jm_download.send(f"文件上传中，进度: {progress:.1f}%，已耗时 {count*10} 秒，预计剩余时间 {max(0, estimated_time-count*10)} 秒")
+                        except asyncio.CancelledError:
+                            pass
                 
                 try:
                     # 启动上传进度反馈任务
-                    upload_feedback_task = asyncio.create_task(send_upload_progress())
+                    if bandwidth > 0:  # 确保带宽大于0时才创建上传进度任务
+                        upload_feedback_task = asyncio.create_task(send_upload_progress())
+                    else:
+                        upload_feedback_task = None
                     
                     # 发送文件
                     try:
