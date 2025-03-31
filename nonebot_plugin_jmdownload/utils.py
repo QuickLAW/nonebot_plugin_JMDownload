@@ -1,5 +1,4 @@
 import os
-from typing import Any
 from PIL import Image
 from pathlib import Path
 

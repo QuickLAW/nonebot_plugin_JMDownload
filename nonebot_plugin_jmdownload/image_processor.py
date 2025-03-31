@@ -2,8 +2,6 @@ import os
 from pathlib import Path
 import logging
 from PIL import Image
-from PIL.ImageFile import ImageFile
-import psutil
 
 class ImageProcessor:
     def _is_image_complete(self, img_path: Path) -> bool:

@@ -1,7 +1,4 @@
 from pathlib import Path
-from nonebot import on_command
-from nonebot.adapters.onebot.v11 import Message, MessageSegment
-from nonebot.params import CommandArg
 from nonebot.plugin import PluginMetadata
 from nonebot_plugin_localstore import get_data_dir
 from .config import global_config

@@ -1,9 +1,8 @@
 import logging
-import os
 import psutil
 from pathlib import Path
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Any
 from threading import Thread, Event
 from time import sleep
 
@@ -82,7 +81,7 @@ class JMDownloadLogger:
         self.logger.debug(msg, *args, **kwargs)
         nonebot_logger.debug(f"[JMDownload] {msg}", *args, **kwargs)
     
-    def log_metrics(self, metrics: Dict[str, Any]):
+    def log_metrics(self, metrics: dict[str, Any]):
         """记录系统指标日志"""
         msg = (
             f"系统资源使用情况 - "
@@ -116,7 +115,7 @@ class SystemMonitor:
             jm_logger.log_metrics(metrics)
             sleep(self.interval)
     
-    def _collect_metrics(self) -> Dict[str, Any]:
+    def _collect_metrics(self) -> dict[str, Any]:
         """收集系统指标"""
         return {
             "cpu": psutil.cpu_percent(interval=1),

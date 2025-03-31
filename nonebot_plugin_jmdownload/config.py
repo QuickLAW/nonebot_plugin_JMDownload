@@ -1,9 +1,8 @@
-from nonebot.internal.driver.abstract import Driver
-
 from typing import Any
+
 import yaml
-import os
 from nonebot import get_driver, logger
+from nonebot.internal.driver.abstract import Driver
 from nonebot_plugin_localstore import get_config_file, get_data_dir
 
 driver: Driver = get_driver()

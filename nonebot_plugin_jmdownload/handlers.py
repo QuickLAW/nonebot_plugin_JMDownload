@@ -1,17 +1,11 @@
 import asyncio
-from socket import timeout
-from nonebot_plugin_jmdownload.pdf_converter import PDFConverter
-
-
-from nonebot_plugin_jmdownload.download import DownloadManager
-
-
 from pathlib import Path
+
 from nonebot import on_command
-from nonebot.adapters.onebot.v11.message import MessageSegment, Message
+from nonebot.adapters.onebot.v11.message import Message
 from nonebot.params import CommandArg
 
-from .config import global_config, jm_config
+from .config import global_config
 from .download import DownloadManager
 from .pdf_converter import PDFConverter
 from .utils import logger, ensure_dir

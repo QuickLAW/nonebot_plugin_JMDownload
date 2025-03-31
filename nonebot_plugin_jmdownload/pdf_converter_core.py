@@ -1,10 +1,8 @@
 import os
 import tempfile
 import math
-from concurrent.futures import ProcessPoolExecutor
 import psutil
 from pathlib import Path
-from typing import List
 from PIL import Image
 from PyPDF2 import PdfMerger
 from nonebot import logger
@@ -34,7 +32,7 @@ class PDFConverterCore:
         
         return chunk_size
 
-    def _process_image_chunk(self, chunk_paths: List[Path], temp_dir: str) -> str:
+    def _process_image_chunk(self, chunk_paths: list[Path], temp_dir: str) -> str:
         """处理单个图片块的任务函数"""
         chunk_pdf = tempfile.mktemp(dir=temp_dir, suffix='.pdf')
         
@@ -56,7 +54,7 @@ class PDFConverterCore:
             logger.error(f"处理图片块失败: {str(e)}")
             raise
 
-    def merge_pdfs(self, pdf_files: List[str], output_path: str) -> None:
+    def merge_pdfs(self, pdf_files: list[str], output_path: str) -> None:
         """合并多个PDF文件"""
         merger = PdfMerger()
         try:
