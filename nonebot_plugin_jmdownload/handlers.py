@@ -70,9 +70,44 @@ async def handle_jm(args: Message = CommandArg()):
             if pdf_path.exists():
                 # 使用实际生成的 PDF 路径
                 file_uri = f"file:///{pdf_path.resolve().as_posix()}"
-                await jm_download.send(Message(build_cq_file(file_uri)), timeout=300)
-                # 删除PDF文件
-                pdf_path.unlink()
+                
+                # 发送上传开始通知
+                await jm_download.send(f"PDF生成完成，开始上传文件...\n文件较大，上传可能需要一些时间，请耐心等待")
+                
+                # 创建上传进度反馈任务
+                upload_feedback_task = None
+                
+                async def send_upload_progress():
+                    count = 0
+                    try:
+                        while True:
+                            count += 1
+                            await asyncio.sleep(10)  # 每30秒发送一次进度提示
+                            await jm_download.send(f"文件上传中，已耗时 {count*10} 秒，请继续等待...")
+                    except asyncio.CancelledError:
+                        pass
+                
+                try:
+                    # 启动上传进度反馈任务
+                    upload_feedback_task = asyncio.create_task(send_upload_progress())
+                    
+                    # 发送文件
+                    await jm_download.send(Message(build_cq_file(file_uri)), timeout=300)
+                    
+                    # 上传完成，取消进度反馈任务
+                    if upload_feedback_task and not upload_feedback_task.done():
+                        upload_feedback_task.cancel()
+                    
+                    # 发送上传完成通知
+                    await jm_download.send("文件上传完成！")
+                    
+                    # 删除PDF文件
+                    pdf_path.unlink()
+                except Exception as e:
+                    # 出错时也要取消进度反馈任务
+                    if upload_feedback_task and not upload_feedback_task.done():
+                        upload_feedback_task.cancel()
+                    raise e
             else:
                 await jm_download.finish("PDF转换失败！")
                 
