@@ -7,7 +7,7 @@ from nonebot import get_driver, logger
 from nonebot_plugin_localstore import get_config_file, get_data_dir
 
 driver: Driver = get_driver()
-global_config: dict[str, Any] = driver.config.model_dump()
+global_config: dict[str, Any] = driver.config.model_dump() if hasattr(driver.config, 'model_dump') else dict(driver.config)
 
 # 使用localstore获取配置文件路径
 config_path = get_config_file("nonebot_plugin_jmdownload", "config.yml")
