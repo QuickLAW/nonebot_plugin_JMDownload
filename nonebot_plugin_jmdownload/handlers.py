@@ -70,15 +70,20 @@ async def handle_jm(args: Message = CommandArg()):
             if pdf_path.exists():
                 # 使用实际生成的 PDF 路径
                 file_uri = f"file:///{pdf_path.resolve().as_posix()}"
+
+                # 获取文件大小并预估上传时间
+                file_size = pdf_path.stat().st_size / (1024 * 1024)  # MB
                 
-                # 发送上传开始通知
-                await jm_download.send(f"PDF生成完成，开始上传文件...\n文件较大，上传可能需要一些时间，请耐心等待")
-                
+                if file_size > 10:
+                    # 发送上传开始通知
+                    await jm_download.send(f"PDF生成完成，开始上传文件...\n文件较大，上传可能需要一些时间，请耐心等待")
+                else:
+                    # 发送上传开始通知
+                    await jm_download.send(f"PDF生成完成，开始上传文件...")
+                    
                 # 创建上传进度反馈任务
                 upload_feedback_task = None
                 
-                # 获取文件大小并预估上传时间
-                file_size = pdf_path.stat().st_size / (1024 * 1024)  # MB
                 bandwidth = int(global_config.get('SERVER_BANDWIDTH', 0))  # 从配置获取带宽(Mbps)
                 
                 if bandwidth > 0:
